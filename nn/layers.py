@@ -106,7 +106,7 @@ class Sequential(ParameterNode):
     def backward(self, input: np.ndarray, output_grad: np.ndarray):
         node_output_grad = output_grad
         idx = len(self.nodes) - 1
-        while idx > 1:
+        while idx > 0:
             node_input = self.nodes[idx - 1].output
             node_output_grad = self.nodes[idx].backward(node_input, node_output_grad)
             idx -= 1
