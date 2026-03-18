@@ -15,7 +15,7 @@ class Node(ABC):
         return self.output
 
     @abstractmethod
-    def backward(self, input: np.ndarray, output_grad: np.ndarray) -> np.ndarray:
+    def backward(self, *args, **kwargs) -> np.ndarray:
         raise NotImplemented
 
 class ParameterNode(Node, ABC):

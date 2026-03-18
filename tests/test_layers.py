@@ -1,9 +1,10 @@
+import numpy as np
 import pytest
-from numpy import dtype
+import torch
 
 from nn import Embedding, Linear, Sequential
-import torch
-import numpy as np
+from utils import assert_is_close
+
 
 @pytest.mark.parametrize("vocab_size, embedding_size", [
     (10_000, 300),
@@ -15,13 +16,14 @@ def test_embedding_forward(vocab_size: int, embedding_size: int):
     torch_embed = torch.nn.Embedding(num_embeddings=vocab_size, embedding_dim=embedding_size)
     torch_embed.weight.data = torch.tensor(custom_embed.weights)
 
-    x1 = np.random.randint(0, vocab_size, (128, ))
+    x1 = np.random.randint(0, vocab_size, (128,))
     x2 = torch.tensor(x1)
 
     actual = custom_embed(x1)
     expected = torch_embed(x2)
 
     assert_is_close(actual, expected)
+
 
 @pytest.mark.parametrize("vocab_size, embedding_size", [
     (10_000, 300),
@@ -32,7 +34,7 @@ def test_embedding_backward(vocab_size: int, embedding_size: int):
     custom_embed = Embedding(vocab_size, embedding_size)
     torch_embed = torch.nn.Embedding(num_embeddings=vocab_size, embedding_dim=embedding_size)
     torch_embed.weight.data = torch.tensor(custom_embed.weights)
-    x1 = np.random.randint(0, vocab_size, (128, ))
+    x1 = np.random.randint(0, vocab_size, (128,))
     x2 = torch.tensor(x1)
 
     actual = custom_embed(x1)
@@ -46,10 +48,11 @@ def test_embedding_backward(vocab_size: int, embedding_size: int):
 
     assert_is_close(actual_weight_grad, expected_weight_grad)
 
+
 def test_embedding_zero_grad():
     vocab_size = 1000
     custom_embed = Embedding(vocab_size, 10)
-    x = np.random.randint(0, vocab_size, (128, ))
+    x = np.random.randint(0, vocab_size, (128,))
 
     actual = custom_embed(x)
     output_grad = np.random.randn(*actual.shape)
@@ -58,6 +61,7 @@ def test_embedding_zero_grad():
     assert np.any(custom_embed.weights_grad)
     custom_embed.zero_grad()
     assert (custom_embed.weights_grad == 0).all()
+
 
 @pytest.mark.parametrize("input_dim, output_dim", [
     (1, 10),
@@ -105,6 +109,7 @@ def test_linear_backward(input_dim, output_dim):
     assert_is_close(custom_linear.weights_grad, torch_linear.weight.grad)
     assert_is_close(custom_linear.biases_grad, torch_linear.bias.grad)
     assert_is_close(actual_input_grad, x2.grad)
+
 
 def test_linear_zero_grad():
     input_dim = 1000
@@ -177,6 +182,7 @@ def test_sequential_backward(embedding_dim, vocab_size):
     assert_is_close(custom_linear.biases_grad, torch_linear.bias.grad)
     assert_is_close(custom_embed.weights_grad, torch_embed.weight.grad)
 
+
 def test_sequential_zero_grad():
     vocab_size = 100
     embedding_dim = 2
@@ -200,9 +206,3 @@ def test_sequential_zero_grad():
     assert np.all(custom_linear.weights_grad == 0)
     assert np.all(custom_linear.biases_grad == 0)
     assert np.all(custom_embed.weights_grad == 0)
-
-
-def assert_is_close(actual: np.ndarray, expected: torch.Tensor):
-    assert actual.dtype == dtype("float64")
-    assert actual.shape == expected.shape
-    assert np.allclose(actual, expected.detach().numpy())
