@@ -47,12 +47,12 @@ class Embedding(ParameterNode):
 
 class Linear(ParameterNode):
 
-    def __init__(self, input_size: int, output_size: int):
+    def __init__(self, input_dim: int, output_dim: int):
         super().__init__()
-
-        self.weights = np.random.randn(input_size, output_size)
-        self.biases = np.random.randn(1, output_size)
-
+        self.input_dim = input_dim
+        self.output_dim = output_dim
+        self.weights = np.random.randn(output_dim, input_dim)
+        self.biases = np.random.randn(output_dim)
         self.weights_grad = np.zeros_like(self.weights)
         self.biases_grad = np.zeros_like(self.biases)
 
@@ -62,7 +62,8 @@ class Linear(ParameterNode):
         :param input: array of shape (batch_size, input_size)
         :return: array of shape (batch_size, output_size)
         """
-        return input @ self.weights + self.biases
+        assert input.shape[1] == self.input_dim
+        return input @ self.weights.T + self.biases
 
     def _compute_input_grad(self, input: np.ndarray, output_grad: np.ndarray):
         """
@@ -71,7 +72,7 @@ class Linear(ParameterNode):
         :param output_grad: array of shape (batch_size, output_size), gradient of a wrapping transformation wrt its input
         :return: array of shape (batch_size, input_size)
         """
-        return output_grad @ self.weights.T
+        return output_grad @ self.weights
 
     def _update_parameters_grad(self, input: np.ndarray, output_grad: np.ndarray):
         """
@@ -79,8 +80,8 @@ class Linear(ParameterNode):
         :param input: array of shape (batch_size, input_size)
         :param output_grad: array of shape (batch_size, output_size), gradient of a wrapping transformation wrt its input
         """
-        self.weights += input.T @ output_grad
-        self.biases += output_grad.sum(axis=0)
+        self.weights_grad += output_grad.T @ input
+        self.biases_grad += output_grad.sum(axis=0)
 
     def zero_grad(self):
         self.weights_grad = np.zeros_like(self.weights)
