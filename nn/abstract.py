@@ -26,9 +26,9 @@ class ParameterNode(Node, ABC):
         self.parameters = parameters
         self.parameter_grads = parameter_grads
 
-    def backward(self, input: np.ndarray, output_grad: np.ndarray) -> np.ndarray:
-        input_grad = self._compute_input_grad(input, output_grad)
-        self._update_parameters_grad(input, output_grad)
+    def backward(self,  *args, **kwargs) -> np.ndarray:
+        input_grad = self._compute_input_grad( *args, **kwargs)
+        self._update_parameters_grad( *args, **kwargs)
         return input_grad
 
     @abstractmethod
@@ -36,11 +36,11 @@ class ParameterNode(Node, ABC):
         raise NotImplemented
 
     @abstractmethod
-    def _update_parameters_grad(self, input: np.ndarray, output_grad: np.ndarray):
+    def _update_parameters_grad(self,  *args, **kwargs):
         raise NotImplemented
 
     @abstractmethod
-    def _compute_input_grad(self, input: np.ndarray, output_grad: np.ndarray):
+    def _compute_input_grad(self,  *args, **kwargs):
         raise NotImplemented
 
 class Optimizer(ABC):

@@ -29,9 +29,7 @@ class Embedding(ParameterNode):
         :param output_grad: array of shape (batch_size, embedding_size), gradient of a wrapping transformation wrt its input
         :return: array of shape (batch_size, vocab_size)
         """
-        assert output_grad.shape[1] == self.embedding_size
-
-        return output_grad @ self.weights.T[:, input_idx]
+        pass
 
     def _update_parameters_grad(self, input_idx: np.ndarray, output_grad: np.ndarray):
         """
@@ -87,6 +85,49 @@ class Linear(ParameterNode):
     def zero_grad(self):
         self.weights_grad = np.zeros_like(self.weights)
         self.biases_grad = np.zeros_like(self.biases)
+
+
+class SkipGram(ParameterNode):
+
+    def __init__(self, vocab_size: int, embedding_size: int):
+        self.central_embeddings = Embedding(vocab_size=vocab_size, embedding_size=embedding_size)
+        self.context_embeddings = Embedding(vocab_size=vocab_size, embedding_size=embedding_size)
+        params = self.central_embeddings.parameters + self.context_embeddings.parameters
+        param_grads = self.central_embeddings.parameter_grads + self.context_embeddings.parameter_grads
+        super().__init__(parameters=params, parameter_grads=param_grads)
+
+    def forward(self, central_idx: np.ndarray, context_idx: np.ndarray) -> np.ndarray:
+        """
+        Return dot product for each central words and the corresponding context words
+        :param central_idx: array of shape (batch_size, ) with indices in range [0, vocab_size)
+        :param context_idx: array of shape (batch_size, k) with indices for context words
+        :return: array of shape (batch_size, k)
+        """
+        central_words = self.central_embeddings.forward(central_idx) # (batch_size, embedding_size)
+        context_words = self.context_embeddings.forward(context_idx)  # (batch_size, k, embedding_size)
+        return np.sum(central_words[:, None, :] * context_words, axis=2)
+
+    def zero_grad(self):
+        self.central_embeddings.zero_grad()
+        self.context_embeddings.zero_grad()
+
+    def _update_parameters_grad(self, central_idx: np.ndarray, context_idx: np.ndarray, output_grad: np.ndarray):
+        """
+        Perform backward pass
+        :param central_idx: array of shape (batch_size, ) with indices for central words
+        :param context_idx: array of shape (batch_size, k) with indices for context words
+        :param output_grad: array of shape (batch_size, k), gradient of a wrapping transformation wrt its input
+        :return:
+        """
+        grad_wrt_central = np.sum(output_grad[:, :, None] * self.context_embeddings.output, axis=1)
+        self.central_embeddings.backward(central_idx, grad_wrt_central)
+
+        grad_wrt_context = output_grad[:, :, None] * self.central_embeddings.output[:, None, :]
+        self.context_embeddings.backward(context_idx, grad_wrt_context)
+
+    def _compute_input_grad(self, input: np.ndarray, output_grad: np.ndarray):
+        pass
+
 
 class Sequential(ParameterNode):
 
