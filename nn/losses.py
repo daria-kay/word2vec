@@ -1,5 +1,5 @@
 import numpy as np
-import scipy.special
+from scipy.special import softmax, log_softmax, log_expit
 
 from .abstract import Node
 
@@ -13,7 +13,7 @@ class NegativeLogLikelihood(Node):
         :return: array of shape (n_samples, 1)
         """
         x_idx = np.arange(logits.shape[0]).reshape(-1, 1)
-        return -scipy.special.log_softmax(logits, axis=1)[x_idx, target].sum(axis=1, keepdims=True)
+        return -log_softmax(logits, axis=1)[x_idx, target].sum(axis=1, keepdims=True)
 
 
     def backward(self, logits: np.ndarray, target: np.ndarray) -> np.ndarray:
@@ -23,9 +23,32 @@ class NegativeLogLikelihood(Node):
         :param target: array of correct class labels (n_samples, n_classes)
         :return: array of shape (n_samples, vocab_size)
         """
-        input_softmax = scipy.special.softmax(logits, axis=1)
+        input_softmax = softmax(logits, axis=1)
         window_elements_term = np.zeros_like(logits)
         x_idx = np.arange(logits.shape[0]).reshape(-1, 1)
         np.add.at(window_elements_term, (x_idx, target), 1)
         window_size = target.shape[1]
         return window_size * input_softmax - window_elements_term
+
+
+class NegativeSamplingLoss(Node):
+
+    def forward(self, logits: np.ndarray, labels: np.ndarray) -> np.ndarray:
+        """
+        Calculate binary classification loss for k - 1 negative samples and one positive
+        :param logits: array of shape (n_samples, k)
+        :param labels: array of shape (n_samples, k), OHE vectors of positive class
+        :return:
+        """
+        mask = labels.astype(np.bool)
+        return -(log_expit(logits)[mask] + log_expit(-logits)[~mask].sum(axis=1))
+
+
+    def backward(self, logits: np.ndarray, labels: np.ndarray) -> np.ndarray:
+        """
+        Calculate a gradient of the loss funciton wrt to the input
+        :param logits: array of shape (n_samples, vocab_size)
+        :param target: array of correct class labels (n_samples, n_classes)
+        :return: array of shape (n_samples, vocab_size)
+        """
+        return log_expit(logits) - labels
