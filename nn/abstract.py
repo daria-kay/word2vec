@@ -20,8 +20,11 @@ class Node(ABC):
 
 class ParameterNode(Node, ABC):
 
-    def __init__(self):
+    @abstractmethod
+    def __init__(self, parameters, parameter_grads):
         super().__init__()
+        self.parameters = parameters
+        self.parameter_grads = parameter_grads
 
     def backward(self, input: np.ndarray, output_grad: np.ndarray) -> np.ndarray:
         input_grad = self._compute_input_grad(input, output_grad)
@@ -39,6 +42,18 @@ class ParameterNode(Node, ABC):
     @abstractmethod
     def _compute_input_grad(self, input: np.ndarray, output_grad: np.ndarray):
         raise NotImplemented
+
+class Optimizer(ABC):
+
+    def __init__(self, model: ParameterNode):
+        self.model = model
+
+    @abstractmethod
+    def step(self):
+        raise NotImplemented
+
+    def zero_grad(self):
+        self.model.zero_grad()
 
 
 

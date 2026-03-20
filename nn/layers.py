@@ -6,13 +6,13 @@ from nn.abstract import ParameterNode
 class Embedding(ParameterNode):
 
     def __init__(self, vocab_size: int, embedding_size: int):
-        super().__init__()
-
         self.vocab_size = vocab_size
         self.embedding_size = embedding_size
 
         self.weights = np.random.randn(vocab_size, embedding_size)
         self.weights_grad = np.zeros_like(self.weights)
+
+        super().__init__([self.weights], [self.weights_grad])
 
     def forward(self, input_idx: np.ndarray) -> np.ndarray:
         """
@@ -48,13 +48,14 @@ class Embedding(ParameterNode):
 class Linear(ParameterNode):
 
     def __init__(self, input_dim: int, output_dim: int):
-        super().__init__()
         self.input_dim = input_dim
         self.output_dim = output_dim
         self.weights = np.random.randn(output_dim, input_dim)
         self.biases = np.random.randn(output_dim)
         self.weights_grad = np.zeros_like(self.weights)
         self.biases_grad = np.zeros_like(self.biases)
+        super().__init__([self.weights, self.biases], [self.weights_grad, self.biases_grad])
+
 
     def forward(self, input: np.ndarray) -> np.ndarray:
         """
@@ -90,8 +91,14 @@ class Linear(ParameterNode):
 class Sequential(ParameterNode):
 
     def __init__(self, nodes: list[ParameterNode]):
-        super().__init__()
         self.nodes = nodes
+        params = []
+        param_grads = []
+        for node in self.nodes:
+            params.extend(node.parameters)
+            param_grads.extend(node.parameter_grads)
+        super().__init__(params, param_grads)
+
 
     def forward(self, input: np.ndarray) -> np.ndarray:
         node_input = input
