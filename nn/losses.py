@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.special import softmax, log_softmax, log_expit
+from scipy.special import softmax, log_softmax, log_expit, expit
 
 from .abstract import Node
 
@@ -51,4 +51,4 @@ class NegativeSamplingLoss(Node):
         :param target: array of correct class labels (n_samples, n_classes)
         :return: array of shape (n_samples, vocab_size)
         """
-        return log_expit(logits) - labels
+        return expit(logits) - labels

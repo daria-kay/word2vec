@@ -5,3 +5,4 @@ torch
 scipy
 gdown
 matplotlib
+pandas

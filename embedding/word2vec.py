@@ -5,14 +5,19 @@ from typing import Iterable
 import numpy as np
 from tqdm.notebook import tqdm
 
-from nn import Adam, NegativeSamplingLoss, SkipGram
+from nn import Adam, NegativeSamplingLoss, SkipGram, Optimizer
 from .tokenizer import Tokenizer
 
 
 class Word2VecDataLoader(Iterable):
 
-    def __init__(self, dataset_file: str, tokenizer: Tokenizer, window_size: int = 5, batch_size: int = 256,
-                 k: int = 5):
+    def __init__(self,
+                 dataset_file: str,
+                 tokenizer: Tokenizer,
+                 window_size: int = 5,
+                 batch_size: int = 256,
+                 k: int = 5,
+                 ):
         self.filename = dataset_file
         self.tokenizer = tokenizer
         self.window_half = window_size // 2
@@ -62,17 +67,36 @@ class Word2Vec:
                  embedding_size: int,
                  tokenizer: Tokenizer,
                  window_size: int = 5,
-                 batch_size: int = 256
+                 batch_size: int = 256,
+                 k: int = 5,
                  ):
-        self.train_data = Word2VecDataLoader(train_filename, tokenizer, window_size=window_size, batch_size=batch_size)
-        self.val_data = Word2VecDataLoader(val_filename, tokenizer, window_size=window_size, batch_size=batch_size)
+        self.train_data = Word2VecDataLoader(
+            train_filename,
+            tokenizer,
+            window_size=window_size,
+            batch_size=batch_size,
+            k=k
+        )
+        self.val_data = Word2VecDataLoader(
+            val_filename,
+            tokenizer,
+            window_size=window_size,
+            batch_size=batch_size,
+            k=k
+        )
         self.model = SkipGram(tokenizer.vocab_size, embedding_size)
         self.tokenizer = tokenizer
         self.embedding_size = embedding_size
         self.objective = NegativeSamplingLoss()
 
+        self.train_losses_ = None
+        self.val_losses_ = None
+        self.gradient_norms_ = None
+        self.parameter_norms_ = None
+
     def train(self, n_iter: int = 5, lr: float = 0.001, beta1: float = 0.9, beta2: float = 0.999):
         optimizer = Adam(self.model, lr=lr, beta1=beta1, beta2=beta2)
+
         train_losses = []
         val_losses = []
 
@@ -100,7 +124,10 @@ class Word2Vec:
                 val_samples += central_word.shape[0]
             val_losses.append(val_loss / val_samples)
 
-        return train_losses, val_losses
+        self.train_losses_ = train_losses
+        self.val_losses_ = val_losses
+        self.gradient_norms_ = optimizer.gradient_norms
+        self.parameter_norms_ = optimizer.parameter_norms
 
     def get(self, word: str):
         idx = self.tokenizer.tokenize(word)

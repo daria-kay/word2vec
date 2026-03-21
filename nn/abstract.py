@@ -21,10 +21,14 @@ class Node(ABC):
 class ParameterNode(Node, ABC):
 
     @abstractmethod
-    def __init__(self, parameters, parameter_grads):
+    def __init__(self, parameters: list, parameter_grads: list, parameter_names: list[str] = None):
         super().__init__()
         self.parameters = parameters
         self.parameter_grads = parameter_grads
+        if not parameter_names:
+            self.parameter_names = []
+        else:
+            self.parameter_names = parameter_names
 
     def backward(self,  *args, **kwargs) -> np.ndarray:
         input_grad = self._compute_input_grad(*args, **kwargs)
@@ -47,6 +51,7 @@ class Optimizer(ABC):
 
     def __init__(self, model: ParameterNode):
         self.model = model
+        self.gradient_norms = dict()
 
     @abstractmethod
     def step(self):

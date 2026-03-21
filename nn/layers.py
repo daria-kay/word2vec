@@ -9,10 +9,18 @@ class Embedding(ParameterNode):
         self.vocab_size = vocab_size
         self.embedding_size = embedding_size
 
-        self.weights = np.random.randn(vocab_size, embedding_size)
+        self.weights = np.random.uniform(
+            low=-0.5 / self.embedding_size,
+            high=0.5 / self.embedding_size,
+            size=(vocab_size, embedding_size)
+        )
         self.weights_grad = np.zeros_like(self.weights)
 
-        super().__init__([self.weights], [self.weights_grad])
+        super().__init__(
+            [self.weights],
+            [self.weights_grad],
+            parameter_names=["central", "context"]
+        )
 
     def forward(self, input_idx: np.ndarray) -> np.ndarray:
         """
@@ -94,7 +102,8 @@ class SkipGram(ParameterNode):
         self.context_embeddings = Embedding(vocab_size=vocab_size, embedding_size=embedding_size)
         params = self.central_embeddings.parameters + self.context_embeddings.parameters
         param_grads = self.central_embeddings.parameter_grads + self.context_embeddings.parameter_grads
-        super().__init__(parameters=params, parameter_grads=param_grads)
+        param_names = self.central_embeddings.parameter_names + self.context_embeddings.parameter_names
+        super().__init__(parameters=params, parameter_grads=param_grads, parameter_names=param_names)
 
     def forward(self, central_idx: np.ndarray, context_idx: np.ndarray) -> np.ndarray:
         """
