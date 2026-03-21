@@ -104,4 +104,4 @@ class Word2Vec:
 
     def get(self, word: str):
         idx = self.tokenizer.tokenize(word)
-        return self.model.central_embeddings[idx, :]
+        return self.model.central_embeddings.weights[idx, :]

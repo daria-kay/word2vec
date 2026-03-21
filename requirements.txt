@@ -3,3 +3,5 @@ tqdm
 pytest
 torch
 scipy
+gdown
+matplotlib
