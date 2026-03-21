@@ -10,3 +10,5 @@
 /httpRequests/
 .idea
 */__pycache__/*
+data/
+.venv/
