@@ -67,6 +67,7 @@ class Word2Vec:
         self.train_data = Word2VecDataLoader(train_filename, tokenizer, window_size=window_size, batch_size=batch_size)
         self.val_data = Word2VecDataLoader(val_filename, tokenizer, window_size=window_size, batch_size=batch_size)
         self.model = SkipGram(tokenizer.vocab_size, embedding_size)
+        self.tokenizer = tokenizer
         self.embedding_size = embedding_size
         self.objective = NegativeSamplingLoss()
 
@@ -89,7 +90,6 @@ class Word2Vec:
                 self.model.backward(central_word, context_words, self.objective.backward(logits, labels))
                 optimizer.step()
             train_losses.append(train_loss / train_samples)
-            print(f"Train loss: {train_losses[-1]}")
 
             val_loss = 0.0
             val_samples = 0
@@ -99,7 +99,6 @@ class Word2Vec:
                 val_loss += loss.sum()
                 val_samples += central_word.shape[0]
             val_losses.append(val_loss / val_samples)
-            print(f"Val loss: {val_losses[-1]}")
 
         return train_losses, val_losses
 

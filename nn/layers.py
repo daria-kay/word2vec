@@ -40,7 +40,7 @@ class Embedding(ParameterNode):
         np.add.at(self.weights_grad, input_idx, output_grad)
 
     def zero_grad(self):
-        self.weights_grad = np.zeros_like(self.weights)
+        self.weights_grad.fill(0.0)
 
 
 class Linear(ParameterNode):
@@ -83,8 +83,8 @@ class Linear(ParameterNode):
         self.biases_grad += output_grad.sum(axis=0)
 
     def zero_grad(self):
-        self.weights_grad = np.zeros_like(self.weights)
-        self.biases_grad = np.zeros_like(self.biases)
+        self.weights_grad.fill(0.0)
+        self.biases_grad.fill(0.0)
 
 
 class SkipGram(ParameterNode):
@@ -103,8 +103,8 @@ class SkipGram(ParameterNode):
         :param context_idx: array of shape (batch_size, k) with indices for context words
         :return: array of shape (batch_size, k)
         """
-        central_words = self.central_embeddings.forward(central_idx) # (batch_size, embedding_size)
-        context_words = self.context_embeddings.forward(context_idx)  # (batch_size, k, embedding_size)
+        central_words = self.central_embeddings(central_idx) # (batch_size, embedding_size)
+        context_words = self.context_embeddings(context_idx)  # (batch_size, k, embedding_size)
         return np.sum(central_words[:, None, :] * context_words, axis=2)
 
     def zero_grad(self):
@@ -125,7 +125,7 @@ class SkipGram(ParameterNode):
         grad_wrt_context = output_grad[:, :, None] * self.central_embeddings.output[:, None, :]
         self.context_embeddings.backward(context_idx, grad_wrt_context)
 
-    def _compute_input_grad(self, input: np.ndarray, output_grad: np.ndarray):
+    def _compute_input_grad(self, central_idx: np.ndarray, context_idx: np.ndarray, output_grad: np.ndarray):
         pass
 
 

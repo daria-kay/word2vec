@@ -40,8 +40,8 @@ class NegativeSamplingLoss(Node):
         :param labels: array of shape (n_samples, k), OHE vectors of positive class
         :return:
         """
-        mask = labels.astype(np.bool)
-        return -(log_expit(logits)[mask] + log_expit(-logits)[~mask].sum(axis=1))
+        mask = labels.astype(bool)
+        return -(np.where(mask, log_expit(logits), 0).sum(axis=1) +  np.where(~mask, log_expit(-logits), 0).sum(axis=1))
 
 
     def backward(self, logits: np.ndarray, labels: np.ndarray) -> np.ndarray:

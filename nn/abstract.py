@@ -27,7 +27,7 @@ class ParameterNode(Node, ABC):
         self.parameter_grads = parameter_grads
 
     def backward(self,  *args, **kwargs) -> np.ndarray:
-        input_grad = self._compute_input_grad( *args, **kwargs)
+        input_grad = self._compute_input_grad(*args, **kwargs)
         self._update_parameters_grad( *args, **kwargs)
         return input_grad
 

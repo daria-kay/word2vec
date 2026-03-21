@@ -1,7 +1,8 @@
-import pytest
-from nn import NegativeLogLikelihood
-import torch
 import numpy as np
+import pytest
+import torch
+
+from nn import NegativeLogLikelihood
 from utils import assert_is_close
 
 
