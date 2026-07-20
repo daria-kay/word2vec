@@ -1,2 +1,2 @@
-from .tokenizer import Tokenizer
+from .text import *
 from .word2vec import *

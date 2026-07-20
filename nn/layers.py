@@ -26,7 +26,7 @@ class Embedding(ParameterNode):
         """
         Return embeddings corresponding to the input indices
         :param input_idx: array of shape (batch_size, ) with indices in range [0, vocab_size)
-        :return: array of shape (embedding_size, batch_size)
+        :return: array of shape (batch_size, embedding_size)
         """
         return self.weights[input_idx, :]
 
@@ -109,12 +109,12 @@ class SkipGram(ParameterNode):
         """
         Return dot product for each central words and the corresponding context words
         :param central_idx: array of shape (batch_size, ) with indices in range [0, vocab_size)
-        :param context_idx: array of shape (batch_size, k) with indices for context words
-        :return: array of shape (batch_size, k)
+        :param context_idx: array of shape (batch_size, ) with indices for context words
+        :return: array of shape (batch_size, )
         """
         central_words = self.central_embeddings(central_idx) # (batch_size, embedding_size)
-        context_words = self.context_embeddings(context_idx)  # (batch_size, k, embedding_size)
-        return np.sum(central_words[:, None, :] * context_words, axis=2)
+        context_words = self.context_embeddings(context_idx) # (batch_size, embedding_size)
+        return np.sum(central_words * context_words, axis=1, keepdims=False) # (batch_size, )
 
     def zero_grad(self):
         self.central_embeddings.zero_grad()
@@ -124,14 +124,14 @@ class SkipGram(ParameterNode):
         """
         Perform backward pass
         :param central_idx: array of shape (batch_size, ) with indices for central words
-        :param context_idx: array of shape (batch_size, k) with indices for context words
-        :param output_grad: array of shape (batch_size, k), gradient of a wrapping transformation wrt its input
+        :param context_idx: array of shape (batch_size, ) with indices for context words
+        :param output_grad: array of shape (batch_size, ), gradient of a wrapping transformation wrt its input
         :return:
         """
-        grad_wrt_central = np.sum(output_grad[:, :, None] * self.context_embeddings.output, axis=1)
+        grad_wrt_central = output_grad[:, None] * self.context_embeddings.output
         self.central_embeddings.backward(central_idx, grad_wrt_central)
 
-        grad_wrt_context = output_grad[:, :, None] * self.central_embeddings.output[:, None, :]
+        grad_wrt_context = output_grad[:, None] * self.central_embeddings.output
         self.context_embeddings.backward(context_idx, grad_wrt_context)
 
     def _compute_input_grad(self, central_idx: np.ndarray, context_idx: np.ndarray, output_grad: np.ndarray):

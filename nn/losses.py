@@ -12,6 +12,7 @@ class NegativeLogLikelihood(Node):
         :param target: array of correct class labels (n_samples, n_classes)
         :return: array of shape (n_samples, 1)
         """
+        softmax()
         x_idx = np.arange(logits.shape[0]).reshape(-1, 1)
         return -log_softmax(logits, axis=1)[x_idx, target].sum(axis=1, keepdims=True)
 
@@ -31,24 +32,24 @@ class NegativeLogLikelihood(Node):
         return window_size * input_softmax - window_elements_term
 
 
-class NegativeSamplingLoss(Node):
+class BinaryClassificationLoss(Node):
 
     def forward(self, logits: np.ndarray, labels: np.ndarray) -> np.ndarray:
         """
-        Calculate binary classification loss for k - 1 negative samples and one positive
-        :param logits: array of shape (n_samples, k)
-        :param labels: array of shape (n_samples, k), OHE vectors of positive class
+        Calculate binary classification loss
+        :param logits: array of shape (batch_size, )
+        :param labels: array of shape (batch_size, ), OHE vector of positive samples
         :return:
         """
         mask = labels.astype(bool)
-        return -(np.where(mask, log_expit(logits), 0).sum(axis=1) +  np.where(~mask, log_expit(-logits), 0).sum(axis=1))
+        return -(np.where(mask, log_expit(logits), 0).sum() + np.where(~mask, log_expit(-logits), 0).sum()) / labels.shape[0]
 
 
     def backward(self, logits: np.ndarray, labels: np.ndarray) -> np.ndarray:
         """
         Calculate a gradient of the loss funciton wrt to the input
-        :param logits: array of shape (n_samples, vocab_size)
-        :param target: array of correct class labels (n_samples, n_classes)
-        :return: array of shape (n_samples, vocab_size)
+        :param logits: array of shape (batch_size, )
+        :param labels: array of correct class labels (batch_size, )
+        :return: array of shape (batch_size, )
         """
-        return expit(logits) - labels
+        return (expit(logits) - labels) / labels.shape[0]
