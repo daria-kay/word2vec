@@ -1,7 +1,7 @@
 import random
 import re
-from itertools import accumulate
 from collections import Counter
+from itertools import accumulate
 
 import tqdm
 
@@ -42,10 +42,9 @@ class Vocab:
     def __contains__(self, item):
         return item in self._vocab
 
-
 class Word2VecParser:
 
-    def __init__(self, corpora_path: str):
+    def __init__(self, corpora_path: str, seed: int = 42):
         self._corpora_path = corpora_path
         self._vocab = dict()
         self._vocab["UNK"] = 0
@@ -53,6 +52,7 @@ class Word2VecParser:
         self._word_pattern = re.compile(r'[A-Za-z0-9_\'-]+')
         self._sentence_pattern = re.compile(r'[^.!?]+')
         self._words_freq = None
+        self._random = random.Random(seed)
 
     def _raw_word_iter(self):
         with open(self._corpora_path, 'r') as corpora:
@@ -106,6 +106,6 @@ class Word2VecParser:
                     print(word, context_word, 1, sep=',', file=output_file)
                     context_word_id = vocab.get_id(context_word)
                     cum_weights_copy[context_word_id] = cum_weights_copy[context_word_id - 1]
-                for negative_sample in random.choices(vocab.words, cum_weights=cum_weights_copy, k=k):
+                for negative_sample in self._random.choices(vocab.words, cum_weights=cum_weights_copy, k=k):
                     print(word, negative_sample, 0, sep=',', file=output_file)
         return vocab

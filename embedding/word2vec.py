@@ -28,7 +28,7 @@ class Word2VecDataloader(Iterable):
         self.label_col = label_col
 
     def __iter__(self):
-        for batch in self._data.collect_batches(chunk_size=self.batch_size, maintain_order=False, lazy=True):
+        for batch in self._data.collect_batches(chunk_size=self.batch_size, maintain_order=True, lazy=True):
             center_words = batch[self.center_word_col].map_elements(lambda word: self._vocab.get_id(word)).to_numpy()
             context_words = batch[self.context_word_col].map_elements(lambda word: self._vocab.get_id(word)).to_numpy()
             labels = batch[self.label_col].to_numpy()
@@ -144,7 +144,10 @@ class Word2Vec:
         with open(save_directory + '/' + self._EMBEDDINGS_FILENAME, 'wb') as embeddings_file:
             pickle.dump(self._embeddings, embeddings_file)
 
-    def __getitem__(self, index):
+    def __getitem__(self, word):
         if self._embeddings is None:
             raise ValueError('model should be trained or initialized from pretrained embeddings')
-        return self._embeddings[index, :]
+        return self._embeddings[self.vocab.get_id(word)]
+
+    def __contains__(self, word):
+        return word in self.vocab
