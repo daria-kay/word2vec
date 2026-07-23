@@ -19,7 +19,7 @@ class Embedding(ParameterNode):
         super().__init__(
             [self.weights],
             [self.weights_grad],
-            parameter_names=["central", "context"]
+            parameter_names=["embedding_weights"]
         )
 
     def forward(self, input_idx: np.ndarray) -> np.ndarray:
@@ -31,17 +31,10 @@ class Embedding(ParameterNode):
         return self.weights[input_idx, :]
 
     def _compute_input_grad(self, input_idx: np.ndarray, output_grad: np.ndarray):
-        """
-        Return a gradient of the transformation wrt the input
-        :param input_idx: array of shape (batch_size, ) with indices in range [0, vocab_size)
-        :param output_grad: array of shape (batch_size, embedding_size), gradient of a wrapping transformation wrt its input
-        :return: array of shape (batch_size, vocab_size)
-        """
         pass
 
     def _update_parameters_grad(self, input_idx: np.ndarray, output_grad: np.ndarray):
         """
-        Updates gradient of weights and biases of the current transformation
         :param input_idx: array of shape (batch_size, ) with indices in range [0, vocab_size)
         :param output_grad: array of shape (batch_size, embedding_size), gradient of a wrapping transformation wrt its input
         """
@@ -51,50 +44,6 @@ class Embedding(ParameterNode):
         self.weights_grad.fill(0.0)
 
 
-class Linear(ParameterNode):
-
-    def __init__(self, input_dim: int, output_dim: int):
-        self.input_dim = input_dim
-        self.output_dim = output_dim
-        self.weights = np.random.randn(output_dim, input_dim)
-        self.biases = np.random.randn(output_dim)
-        self.weights_grad = np.zeros_like(self.weights)
-        self.biases_grad = np.zeros_like(self.biases)
-        super().__init__([self.weights, self.biases], [self.weights_grad, self.biases_grad])
-
-
-    def forward(self, input: np.ndarray) -> np.ndarray:
-        """
-        Return transformed input
-        :param input: array of shape (batch_size, input_size)
-        :return: array of shape (batch_size, output_size)
-        """
-        assert input.shape[1] == self.input_dim
-        return input @ self.weights.T + self.biases
-
-    def _compute_input_grad(self, input: np.ndarray, output_grad: np.ndarray):
-        """
-        Return a gradient of the transformation wrt the input
-        :param input: array of shape (batch_size, input_size)
-        :param output_grad: array of shape (batch_size, output_size), gradient of a wrapping transformation wrt its input
-        :return: array of shape (batch_size, input_size)
-        """
-        return output_grad @ self.weights
-
-    def _update_parameters_grad(self, input: np.ndarray, output_grad: np.ndarray):
-        """
-        Updates gradient of weights and biases of the current transformation
-        :param input: array of shape (batch_size, input_size)
-        :param output_grad: array of shape (batch_size, output_size), gradient of a wrapping transformation wrt its input
-        """
-        self.weights_grad += output_grad.T @ input
-        self.biases_grad += output_grad.sum(axis=0)
-
-    def zero_grad(self):
-        self.weights_grad.fill(0.0)
-        self.biases_grad.fill(0.0)
-
-
 class SkipGram(ParameterNode):
 
     def __init__(self, vocab_size: int, embedding_size: int):
@@ -102,8 +51,7 @@ class SkipGram(ParameterNode):
         self.context_embeddings = Embedding(vocab_size=vocab_size, embedding_size=embedding_size)
         params = self.central_embeddings.parameters + self.context_embeddings.parameters
         param_grads = self.central_embeddings.parameter_grads + self.context_embeddings.parameter_grads
-        param_names = self.central_embeddings.parameter_names + self.context_embeddings.parameter_names
-        super().__init__(parameters=params, parameter_grads=param_grads, parameter_names=param_names)
+        super().__init__(parameters=params, parameter_grads=param_grads, parameter_names=['center', 'context'])
 
     def forward(self, central_idx: np.ndarray, context_idx: np.ndarray) -> np.ndarray:
         """
@@ -112,9 +60,9 @@ class SkipGram(ParameterNode):
         :param context_idx: array of shape (batch_size, ) with indices for context words
         :return: array of shape (batch_size, )
         """
-        central_words = self.central_embeddings(central_idx) # (batch_size, embedding_size)
-        context_words = self.context_embeddings(context_idx) # (batch_size, embedding_size)
-        return np.sum(central_words * context_words, axis=1, keepdims=False) # (batch_size, )
+        central_words = self.central_embeddings(central_idx)  # (batch_size, embedding_size)
+        context_words = self.context_embeddings(context_idx)  # (batch_size, embedding_size)
+        return np.sum(central_words * context_words, axis=1)  # (batch_size, )
 
     def zero_grad(self):
         self.central_embeddings.zero_grad()
@@ -135,42 +83,4 @@ class SkipGram(ParameterNode):
         self.context_embeddings.backward(context_idx, grad_wrt_context)
 
     def _compute_input_grad(self, central_idx: np.ndarray, context_idx: np.ndarray, output_grad: np.ndarray):
-        pass
-
-
-class Sequential(ParameterNode):
-
-    def __init__(self, nodes: list[ParameterNode]):
-        self.nodes = nodes
-        params = []
-        param_grads = []
-        for node in self.nodes:
-            params.extend(node.parameters)
-            param_grads.extend(node.parameter_grads)
-        super().__init__(params, param_grads)
-
-
-    def forward(self, input: np.ndarray) -> np.ndarray:
-        node_input = input
-        for node in self.nodes:
-            node_input = node(node_input)
-        return node_input
-
-    def zero_grad(self):
-        for node in self.nodes:
-            node.zero_grad()
-
-    def backward(self, input: np.ndarray, output_grad: np.ndarray):
-        node_output_grad = output_grad
-        idx = len(self.nodes) - 1
-        while idx > 0:
-            node_input = self.nodes[idx - 1].output
-            node_output_grad = self.nodes[idx].backward(node_input, node_output_grad)
-            idx -= 1
-        return self.nodes[0].backward(input, node_output_grad)
-
-    def _update_parameters_grad(self, input: np.ndarray, output_grad: np.ndarray):
-        pass
-
-    def _compute_input_grad(self, input: np.ndarray, output_grad: np.ndarray):
         pass

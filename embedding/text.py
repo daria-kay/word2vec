@@ -1,7 +1,11 @@
+import os
+import pickle
 import random
 import re
 from collections import Counter
 from itertools import accumulate
+from pathlib import Path
+from typing import Tuple
 
 import tqdm
 
@@ -42,41 +46,42 @@ class Vocab:
     def __contains__(self, item):
         return item in self._vocab
 
-class Word2VecParser:
 
-    def __init__(self, corpora_path: str, seed: int = 42):
-        self._corpora_path = corpora_path
-        self._vocab = dict()
-        self._vocab["UNK"] = 0
-        self._reverse_vocab = []
-        self._word_pattern = re.compile(r'[A-Za-z0-9_\'-]+')
-        self._sentence_pattern = re.compile(r'[^.!?]+')
-        self._words_freq = None
+class Word2VecDatasetBuilder:
+    _DATASET_FILENAME: str = 'dataset.csv'
+    _VOCAB_FILENAME: str = 'vocab.pkl'
+
+    def __init__(self, word_pattern: re.Pattern | None = None, sentence_pattern: re.Pattern | None = None, seed: int = 42):
+        self._word_pattern = word_pattern
+        self._sentence_pattern = sentence_pattern
+        if self._word_pattern is None:
+            self._word_pattern = re.compile(r'[A-Za-z0-9_\'-]+')
+        if self._sentence_pattern is None:
+            self._sentence_pattern = re.compile(r'[^.!?]+')
         self._random = random.Random(seed)
 
-    def _raw_word_iter(self):
-        with open(self._corpora_path, 'r') as corpora:
+    def _raw_word_iter(self, corpora_path: str):
+        with open(corpora_path, 'r') as corpora:
             for line in corpora:
                 for sentence_match in self._sentence_pattern.finditer(line.lower()):
                     for word_match in self._word_pattern.finditer(sentence_match[0]):
                         yield word_match[0]
 
-    def _build_vocab(self, min_count: int) -> Vocab:
-        if self._words_freq is None:
-            self._words_freq = Counter()
-            for word in self._raw_word_iter():
-                self._words_freq[word] += 1
+    def _build_vocab(self, corpora_path: str, min_count: int) -> Tuple[Vocab, Counter]:
+        words_freq = Counter()
+        for word in self._raw_word_iter(corpora_path):
+            words_freq[word] += 1
         vocab = Vocab()
-        for word, freq in self._words_freq.items():
+        for word, freq in words_freq.items():
             if freq < min_count:
                 continue
             vocab.add(word, freq)
 
-        return vocab
+        return vocab, words_freq
 
-    def _context_iter(self, vocab, window_size):
+    def _context_iter(self, corpora_path: str, vocab: Vocab, window_size: int):
         window_half = window_size // 2
-        with open(self._corpora_path, 'r') as corpora:
+        with open(corpora_path, 'r') as corpora:
             for line in corpora:
                 for sentence_match in self._sentence_pattern.finditer(line.lower()):
                     sentence = [
@@ -91,16 +96,18 @@ class Word2VecParser:
                         context_words.remove(center_word)
                         yield center_word, context_words
 
-    def parse_positive_negative_samples(self,
-                                        output_path: str,
-                                        k: int = 5,
-                                        window_size: int = 5,
-                                        min_count: int = 10,
-                                        ):
-        vocab = self._build_vocab(min_count)
-        cum_weights = list(accumulate([self._words_freq[w] ** 0.75 for w in vocab.words]))
-        with open(output_path, 'w') as output_file:
-            for word, context_words in tqdm.tqdm(self._context_iter(vocab, window_size)):
+    def build_dataset(self,
+                      corpora_path: str,
+                      output_path: str,
+                      k: int = 20,
+                      window_size: int = 5,
+                      min_count: int = 10,
+                      ):
+        os.makedirs(output_path, exist_ok=True)
+        vocab, words_freq = self._build_vocab(corpora_path, min_count)
+        cum_weights = list(accumulate([words_freq[w] ** 0.75 for w in vocab.words]))
+        with open(Path(output_path, self._DATASET_FILENAME), 'w') as output_file:
+            for word, context_words in tqdm.tqdm(self._context_iter(corpora_path, vocab, window_size)):
                 cum_weights_copy = cum_weights.copy()
                 for context_word in context_words:
                     print(word, context_word, 1, sep=',', file=output_file)
@@ -108,4 +115,5 @@ class Word2VecParser:
                     cum_weights_copy[context_word_id] = cum_weights_copy[context_word_id - 1]
                 for negative_sample in self._random.choices(vocab.words, cum_weights=cum_weights_copy, k=k):
                     print(word, negative_sample, 0, sep=',', file=output_file)
-        return vocab
+        with open(Path(output_path, self._VOCAB_FILENAME), 'wb') as vocab_file:
+            pickle.dump(vocab, file=vocab_file)
