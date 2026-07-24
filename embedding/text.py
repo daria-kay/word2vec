@@ -113,7 +113,7 @@ class Word2VecDatasetBuilder:
                     print(word, context_word, 1, sep=',', file=output_file)
                     context_word_id = vocab.get_id(context_word)
                     cum_weights_copy[context_word_id] = cum_weights_copy[context_word_id - 1]
-                for negative_sample in self._random.choices(vocab.words, cum_weights=cum_weights_copy, k=k):
+                for negative_sample in self._random.choices(vocab.words, cum_weights=cum_weights_copy, k=(k * len(context_words))):
                     print(word, negative_sample, 0, sep=',', file=output_file)
         with open(Path(output_path, self._VOCAB_FILENAME), 'wb') as vocab_file:
             pickle.dump(vocab, file=vocab_file)

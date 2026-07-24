@@ -24,5 +24,4 @@ class BinaryCrossEntropy(Node):
         :param labels: array of correct class labels (batch_size, )
         :return: array of shape (batch_size, )
         """
-        value = expit(logits) - labels
-        return value
+        return expit(logits) - labels
